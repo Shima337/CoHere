@@ -49,7 +49,6 @@ function App() {
             fetch(`${URL}/dev/parse`, {
               // Adding method type
               method: "POST",
-
               // Adding body or contents to send
               body: JSON.stringify({
                 link: linkedin,
@@ -57,7 +56,7 @@ function App() {
 
               // Adding headers to the request
               headers: {
-                "Content-type": "application/json; charset=UTF-8",
+                  "Content-type": "application/json; charset=UTF-8"
               },
             })
               .then((resp) => resp.json())
@@ -170,7 +169,7 @@ function App() {
 
             console.log(prompt);
 
-            fetch(`${URL}/dev/gpt`, {
+            fetch(`${URL}/dev/cohere`, {
               // Adding method type
               method: "POST",
 
