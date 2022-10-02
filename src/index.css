@@ -1,13 +1,59 @@
+* {
+  box-sizing: border-box;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: "Exo 2", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-size: 1rem;
+  background-color: #afaffa;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+.LinkedInLink {
+  margin: 30px auto;
+  color: aqua;
+  text-align: center;
+  font-size: 1.2rem;
+}
+
+h2 {
+  text-align: center;
+}
+
+textarea {
+  height: 40vh;
+  width: 95vw;
+  margin-left: 2.5vw;
+}
+
+.CreateCoverLetter {
+  margin: 10px;
+  font-size: 1.2rem;
+}
+
+form {
+  margin-left: 2.5vw;
+}
+
+.parseData {
+  position: relative;
+  margin-right: 2.5vw;
+  width: 70vw;
+  margin-bottom: 2px;
+}
+
+form > div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.red {
+  border: 2px red solid;
 }
