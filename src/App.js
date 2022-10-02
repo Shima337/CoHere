@@ -56,7 +56,7 @@ function App() {
 
               // Adding headers to the request
               headers: {
-                  "Content-type": "application/json; charset=UTF-8"
+                "Content-type": "application/json; charset=UTF-8",
               },
             })
               .then((resp) => resp.json())
@@ -153,18 +153,25 @@ function App() {
           onClick={(e) => {
             e.preventDefault();
             const prompt =
+              "Person name: " +
               firstName +
               "," +
+              "Place of education: " +
               placeOfStady +
               "," +
+              "Education degree: " +
               degree +
               "," +
+              "Place of work: " +
               company +
               "," +
+              "Position:  " +
               position +
               "," +
+              "Responsibilities: " +
               responsibilities +
               "," +
+              "Achievements: " +
               achievements;
 
             console.log(prompt);
