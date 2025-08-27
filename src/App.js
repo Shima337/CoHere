@@ -1,221 +1,139 @@
-import { useEffect } from "react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import "./index.css";
 
-//const cohere = require("cohere-ai");
-const URL = "http://127.0.0.1:5000";
-
 function App() {
-  const [response, setResponse] = useState();
-  const [linkedin, SetLinkedin] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [placeOfStady, setPlaceOfStady] = useState("");
-  const [degree, setDegree] = useState("");
-  const [company, setCompany] = useState("");
-  const [position, setPosition] = useState("");
-  const [responsibilities, setResponsibilities] = useState("");
-  const [achievements, setAchievements] = useState("");
-  const [finalText, setFinalText] = useState("");
+  const [systemPrompt, setSystemPrompt] = useState(
+    "Ты преподаватель русского языка. Объясняй темы по-русски простым языком."
+  );
+  const [topic, setTopic] = useState("");
+  const [test, setTest] = useState("");
+  const [answers, setAnswers] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const audioRef = useRef(null);
+  const dcRef = useRef(null);
 
-  //cohere.init("j9fltyvpID3YyH82yoUqSCjhcydpMh1vG3lLS83z");
-
-  /*
-  async () => {
-    cohere.init("j9fltyvpID3YyH82yoUqSCjhcydpMh1vG3lLS83z");
-
-    // Hit the `generate` endpoint on the `large` model
-    const generateResponse = await cohere.generate({
-      model: "large",
-      prompt: "Once upon a time in a magical land called",
-      max_tokens: 50,
-      temperature: 1,
+  const startSession = async () => {
+    const tokenRes = await fetch("/session", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
     });
-    console.log(generateResponse);
+    const token = await tokenRes.json();
+    const pc = new RTCPeerConnection();
+    const dc = pc.createDataChannel("oai-events");
+    dcRef.current = dc;
+    dc.onmessage = (ev) => {
+      console.log("message", ev.data);
+    };
+    pc.ontrack = (e) => {
+      audioRef.current.srcObject = e.streams[0];
+    };
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    const baseUrl =
+      "https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17";
+    const resp = await fetch(baseUrl, {
+      method: "POST",
+      body: offer.sdp,
+      headers: {
+        Authorization: `Bearer ${token.client_secret}`,
+        "Content-Type": "application/sdp",
+      },
+    });
+    const answer = await resp.text();
+    await pc.setRemoteDescription({ type: "answer", sdp: answer });
+    dc.addEventListener("open", () => {
+      dc.send(
+        JSON.stringify({
+          type: "session.update",
+          session: { instructions: systemPrompt },
+        })
+      );
+      dc.send(
+        JSON.stringify({
+          type: "response.create",
+          response: {
+            conversation: [
+              {
+                role: "user",
+                content: [
+                  { type: "input_text", text: `Объясни тему \"${topic}\"` },
+                ],
+              },
+            ],
+          },
+        })
+      );
+    });
   };
 
-  */
+  const generateTest = async () => {
+    const res = await fetch("/test", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ topic, systemPrompt }),
+    });
+    const data = await res.json();
+    setTest(data.test);
+  };
+
+  const gradeTest = async () => {
+    const res = await fetch("/grade", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ topic, test, answers, systemPrompt }),
+    });
+    const data = await res.json();
+    alert(data.result);
+  };
 
   return (
-    <div>
-      <h2>creating a document stage 1</h2>
-      <div className="LinkedInLink">
-        LinkedIn{" "}
-        <input
-          value={linkedin}
-          onChange={(e) => SetLinkedin(e.target.value)}
-        ></input>{" "}
-        <button
-          onClick={() => {
-            fetch(`${URL}/dev/parse`, {
-              // Adding method type
-              method: "POST",
-              // Adding body or contents to send
-              body: JSON.stringify({
-                link: linkedin,
-              }),
-
-              // Adding headers to the request
-              headers: {
-                "Content-type": "application/json; charset=UTF-8",
-              },
-            })
-              .then((resp) => resp.json())
-              .then((res) => {
-                setResponse(res);
-                console.log(res);
-                setFirstName(res?.first_name || "-----");
-
-                setDegree(res?.study?.degreeName || "-----");
-                setCompany(res?.company.companyName || "-----");
-                setPosition(res?.position || "-----");
-                setResponsibilities(res?.responsibilities[0] || "-----");
-                setAchievements(res?.achievements || "-----");
-                setPlaceOfStady(res?.study?.schoolName || "-----");
-              });
-          }}
-        >
-          parse LinkedIn
-        </button>
+    <div className="app">
+      <div className="left">
+        <h3>Системные промты</h3>
+        <textarea
+          value={systemPrompt}
+          onChange={(e) => setSystemPrompt(e.target.value)}
+        ></textarea>
       </div>
-
-      <form>
-        <div>
-          <label>Who:</label>
-          <input
-            id="1"
-            className={firstName == "-----" ? "parseData red" : "parseData"}
-            value={firstName}
-            onChange={(e) => {
-              setFirstName(e.target.value);
-              console.log(firstName);
-            }}
-          ></input>
+      <div className="right">
+        <input
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          placeholder="OpenAI API Key"
+        />
+        <input
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          placeholder="Тема или правило"
+        />
+        <div className="buttons">
+          <button onClick={startSession}>Объяснить голосом</button>
+          <button onClick={generateTest}>Получить тест</button>
         </div>
-
-        <div>
-          <label>Place of study:</label>
-          <input
-            id="3"
-            className={placeOfStady == "-----" ? "parseData red" : "parseData"}
-            value={placeOfStady}
-            onChange={(e) => setPlaceOfStady(e.target.value)}
-          ></input>
-        </div>
-        <div>
-          <label>Degree:</label>
-          <input
-            id="4"
-            className={degree == "-----" ? "parseData red" : "parseData"}
-            value={degree}
-            onChange={(e) => setDegree(e.target.value)}
-          ></input>
-        </div>
-        <div>
-          <label>Company:</label>
-          <input
-            id="5"
-            className={company == "-----" ? "parseData red" : "parseData"}
-            value={company}
-            onChange={(e) => setCompany(e.target.value)}
-          ></input>
-        </div>
-        <div>
-          <label>Position:</label>
-          <input
-            id="6"
-            className={position == "-----" ? "parseData red" : "parseData"}
-            value={position}
-            onChange={(e) => setPosition(e.target.value)}
-          ></input>
-        </div>
-        <div>
-          <label>Responsibilities:</label>
-          <input
-            id="7"
-            className={
-              responsibilities == "-----" ? "parseData red" : "parseData"
-            }
-            value={responsibilities}
-            onChange={(e) => setResponsibilities(e.target.value)}
-          ></input>
-        </div>
-        <div>
-          <label>Achievements:</label>
-          <input
-            id="8"
-            className={achievements == "-----" ? "parseData red" : "parseData"}
-            value={achievements}
-            onChange={(e) => setAchievements(e.target.value)}
-          ></input>
-        </div>
-        <button
-          className="CreateCoverLetter"
-          onClick={(e) => {
-            e.preventDefault();
-            const prompt =
-              "Person name: " +
-              firstName +
-              "," +
-              "Place of education: " +
-              placeOfStady +
-              "," +
-              "Education degree: " +
-              degree +
-              "," +
-              "Place of work: " +
-              company +
-              "," +
-              "Position:  " +
-              position +
-              "," +
-              "Responsibilities: " +
-              responsibilities +
-              "," +
-              "Achievements: " +
-              achievements;
-
-            console.log(prompt);
-
-            fetch(`${URL}/dev/cohere`, {
-              // Adding method type
-              method: "POST",
-
-              // Adding body or contents to send
-              body: JSON.stringify({
-                person_info: prompt,
-              }),
-
-              // Adding headers to the request
-              headers: {
-                "Content-type": "application/json; charset=UTF-8",
-              },
-            })
-              .then((res) => res.json())
-              .then((res) => {
-                console.log(res);
-                setFinalText(res.response);
-              });
-          }}
-        >
-          Generate a document
-        </button>
-      </form>
-      <textarea
-        value={finalText}
-        onChange={(e) => {
-          setFinalText(e.target.value);
-        }}
-      ></textarea>
+        {test && (
+          <div className="test">
+            <p>{test}</p>
+            <textarea
+              value={answers}
+              onChange={(e) => setAnswers(e.target.value)}
+              placeholder="Ваши ответы"
+            ></textarea>
+            <button onClick={gradeTest}>Проверить</button>
+          </div>
+        )}
+        <audio ref={audioRef} autoPlay></audio>
+      </div>
     </div>
   );
 }
 
 export default App;
-/*Who: I
-Pronoun: He
-Place of study: Cambridge University
-Degree: MBA
-Company: Apple
-Position: Marketing Manager
-Responsibilities: Lead digital marketing strategy
-Achievements: MQL + 20%, Brand awareness +15%*/
+
