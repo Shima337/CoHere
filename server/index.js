@@ -1,47 +1,79 @@
-const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const PORT = process.env.PORT || 3003;
 const app = express();
 app.use(cors());
+app.use(express.json());
+
+app.post("/session", async (req, res) => {
+  const openaiKey = req.header("Authorization")?.replace("Bearer ", "");
+  if (!openaiKey) return res.status(400).send({ error: "Missing Authorization header" });
+  try {
+    const r = await fetch("https://api.openai.com/v1/realtime/sessions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${openaiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-realtime-preview-2024-12-17",
+        voice: "alloy",
+      }),
+    });
+    const data = await r.json();
+    res.send(data);
+  } catch (e) {
+    res.status(500).send({ error: e.message });
+  }
+});
+
+app.post("/test", async (req, res) => {
+  const { topic, systemPrompt } = req.body;
+  const openaiKey = req.header("Authorization")?.replace("Bearer ", "");
+  if (!openaiKey) return res.status(400).send({ error: "Missing Authorization header" });
+  try {
+    const r = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${openaiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        input: `${systemPrompt}\nСоставь короткий тест (3 вопроса) по теме: ${topic}.`,
+      }),
+    });
+    const data = await r.json();
+    res.send({ test: data?.output_text || "" });
+  } catch (e) {
+    res.status(500).send({ error: e.message });
+  }
+});
+
+app.post("/grade", async (req, res) => {
+  const { topic, test, answers, systemPrompt } = req.body;
+  const openaiKey = req.header("Authorization")?.replace("Bearer ", "");
+  if (!openaiKey) return res.status(400).send({ error: "Missing Authorization header" });
+  try {
+    const r = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${openaiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        input: `${systemPrompt}\nТема: ${topic}\nТест:\n${test}\nОтветы ученика:\n${answers}\nПроверь ответы и дай короткую обратную связь на русском.`,
+      }),
+    });
+    const data = await r.json();
+    res.send({ result: data?.output_text || "" });
+  } catch (e) {
+    res.status(500).send({ error: e.message });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Server listening on ${PORT}`);
 });
 
-const cohere = require("cohere-ai");
-cohere.init("yourKey");
-
-app.get("/api", async (req, res) => {
-  (async () => {
-    const response = await cohere.generate({
-      prompt: `Person name: Maksim
-      Place of education: Belarussian Technical University
-      Education degree: Bachelor's degree in Economics
-      Place of work: Fetti
-      Position: Product director
-      Responsibilities: Creating product requirements documents, guiding other product leaders, and leading all product initiatives.
-      Achievements: Attracted 1,000 users to the new mobile app, expanding the geographical area of interaction.
-      Personal biography paragraph: I'm Maksim a Belarussian-born entrepreneur and technology executive who has co-founded and led several successful startups. I have a Bachelor's degree in Economics from Belarusian Technical University and extensive experience in building teams, organizing processes, and project management, including cross-team collaboration. I am passionate about using technology to solve problems and improve people's lives. My latest venture is Fetti, a mobile app for tourists and nomads. I consider myself a gifted leader and problem-solver who has a proven track record of success.
-      --
-      Person name: Antony
-      Place of education: Cambridge University
-      Education degree: MBA
-      Place of work: Apple
-      Position: Marketing Manager
-      Responsibilities: Lead digital marketing strategy
-      Achievements: MQL + 20%, Brand awareness +15%
-      Personal biography paragraph:`,
-      max_tokens: 250,
-      temperature: 0.5,
-      k: 0,
-      p: 0.75,
-      frequency_penalty: 0,
-      presence_penalty: 0,
-      stop_sequences: [],
-      return_likelihoods: "NONE",
-    });
-    console.log(`Prediction: ${response.body.generations[0].text}`);
-    console.log(`All: ${response.body.generations}`);
-  })();
-});
